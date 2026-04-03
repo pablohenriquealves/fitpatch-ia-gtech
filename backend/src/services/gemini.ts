@@ -1,7 +1,10 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import type { WorkoutCheckInRequest } from "../types/workout.js";
 
-/** Modelo estável atual (1.5 foi removido da API; ver https://ai.google.dev/gemini-api/docs/models ) */
+/**
+ * Modelo estável atual
+ * @see https://ai.google.dev/gemini-api/docs/models
+ */
 const DEFAULT_MODEL = "gemini-2.5-flash";
 
 function getModelId(): string {
@@ -12,12 +15,16 @@ function getApiKey(): string {
   const key = process.env.GEMINI_API_KEY;
   if (!key?.trim()) {
     throw new Error(
-      "GEMINI_API_KEY não configurada. Defina a variável de ambiente antes de chamar o serviço."
+      "GEMINI_API_KEY não configurada. Defina a variável de ambiente antes de chamar o serviço.",
     );
   }
   return key.trim();
 }
 
+/**
+ * Construir instruções do sistema para o modelo de IA.
+ * Define o papel e as regras de adaptação de treinos.
+ */
 function buildSystemInstruction(): string {
   return `Você é o FitPatch IA, um Especialista em Fisiologia do Exercício e Personal Trainer Analítico. Seu objetivo é adaptar fichas de musculação em tempo real para alunos que lidam com rotinas imprevisíveis, garantindo foco em hipertrofia e segurança.
 
@@ -39,52 +46,50 @@ Sua resposta será consumida por uma interface em React e renderizada em Cards. 
 **Exercício:** [Próximo Exercício]`;
 }
 
-function buildUserContent(req: WorkoutCheckInRequest): string {
+/**
+ * Construir conteúdo do usuário com os dados recebidos.
+ * Formata os dados de entrada para o prompt da IA.
+ */
+function buildUserContent(data: WorkoutCheckInRequest): string {
   return `Dados do check-in:
 
 ## Rotina base
-${req.baseWorkoutRoutine}
+${data.baseWorkoutRoutine}
 
 ## Tempo disponível
-${req.availableTimeMinutes} minutos
+${data.availableTimeMinutes} minutos
 
 ## Nível de fadiga (1 = muito descansado, 5 = muito fatigado)
-${req.fatigueLevel}
+${data.fatigueLevel}
 
 ## Histórico e observações
-${req.historyNotes || "(nenhuma observação adicional)"}
+${data.historyNotes || "(nenhuma observação adicional)"}
 
 Com base nas regras do sistema, gere o treino adaptado para hoje, em texto contínuo e objetivo.`;
 }
 
-export interface GeminiStreamChunk {
-  text: string;
-}
-
 /**
- * Retorna um AsyncIterable de chunks de texto do modelo (streaming).
+ * Gera um stream de treino adaptado usando a API Gemini.
+ *
+ * @param data - Dados validados do check-in (rotina base, tempo, fadiga, histórico)
+ * @returns AsyncIterable do stream de resposta da IA, com chunks de texto
  */
-export async function streamAdaptedWorkout(
-  request: WorkoutCheckInRequest
-): Promise<AsyncIterable<GeminiStreamChunk>> {
+export async function generateWorkoutStream(data: WorkoutCheckInRequest) {
+  // Validar configuração da API
   const apiKey = getApiKey();
+
+  // Inicializar cliente Gemini
   const genAI = new GoogleGenerativeAI(apiKey);
   const model = genAI.getGenerativeModel({
     model: getModelId(),
     systemInstruction: buildSystemInstruction(),
   });
 
-  const userContent = buildUserContent(request);
+  // Construir prompt com contexto e dados
+  const userContent = buildUserContent(data);
+
+  // Chamar generateContentStream para retornar stream em tempo real
   const result = await model.generateContentStream(userContent);
 
-  async function* iterate(): AsyncGenerator<GeminiStreamChunk> {
-    for await (const chunk of result.stream) {
-      const text = chunk.text();
-      if (text) {
-        yield { text };
-      }
-    }
-  }
-
-  return iterate();
+  return result.stream;
 }

@@ -13,116 +13,135 @@ export interface StreamHandlers {
 }
 
 /**
- * POST com SSE: consome `data: {"text":"..."}` e eventos `done` / `error`.
+ * POST com streaming de texto plano.
+ * O backend envia chunks de texto contínuos que são consumidos em tempo real.
  */
 export async function streamWorkoutGeneration(
   body: WorkoutCheckInRequest,
-  handlers: StreamHandlers
+  handlers: StreamHandlers,
 ): Promise<void> {
-  const url = `${getWorkoutApiBase().replace(/\/$/, "")}/api/workout/generate-stream`;
-  const res = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
+  const url = `${getWorkoutApiBase().replace(/\/$/, "")}/api/workout/generate`;
 
-  const ct = res.headers.get("content-type") ?? "";
+  try {
+    console.log(
+      "[streamWorkoutGeneration] Iniciando requisição POST para:",
+      url,
+    );
+    console.log("[streamWorkoutGeneration] Payload:", body);
 
-  if (!res.ok) {
-    if (ct.includes("application/json")) {
-      const err = (await res.json()) as { error?: string };
-      handlers.onError(err.error ?? `Erro HTTP ${res.status}`);
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+
+    console.log("[streamWorkoutGeneration] Status HTTP:", res.status);
+    console.log(
+      "[streamWorkoutGeneration] Content-Type:",
+      res.headers.get("content-type"),
+    );
+
+    const ct = res.headers.get("content-type") ?? "";
+
+    if (!res.ok) {
+      console.error("[streamWorkoutGeneration] Resposta não OK:", res.status);
+
+      if (ct.includes("application/json")) {
+        try {
+          const err = (await res.json()) as {
+            error?: string;
+            details?: unknown;
+          };
+          const errorMsg = err.error ?? `Erro HTTP ${res.status}`;
+          console.error(
+            "[streamWorkoutGeneration] Erro JSON recebido:",
+            errorMsg,
+            err.details,
+          );
+          handlers.onError(errorMsg);
+          return;
+        } catch (parseErr) {
+          console.error(
+            "[streamWorkoutGeneration] Falha ao parsear erro JSON:",
+            parseErr,
+          );
+        }
+      }
+
+      const errorMsg = `Falha na requisição (${res.status})`;
+      console.error("[streamWorkoutGeneration]", errorMsg);
+      handlers.onError(errorMsg);
       return;
     }
-    handlers.onError(`Falha na requisição (${res.status})`);
-    return;
-  }
 
-  if (!res.body) {
-    handlers.onError("Resposta sem corpo utilizável para streaming.");
-    return;
-  }
+    if (!res.body) {
+      const errorMsg = "Resposta sem corpo utilizável para streaming.";
+      console.error("[streamWorkoutGeneration]", errorMsg);
+      handlers.onError(errorMsg);
+      return;
+    }
 
-  await consumeSseBody(res.body, handlers);
+    console.log("[streamWorkoutGeneration] Iniciando consumo do stream...");
+    await consumeTextStreamBody(res.body, handlers);
+    console.log("[streamWorkoutGeneration] Stream finalizado com sucesso.");
+  } catch (err) {
+    const errorMsg = err instanceof Error ? err.message : String(err);
+    console.error(
+      "[streamWorkoutGeneration] Erro capturado no try/catch:",
+      errorMsg,
+      err,
+    );
+    handlers.onError(`Erro ao conectar ao servidor: ${errorMsg}`);
+  }
 }
 
-async function consumeSseBody(
+/**
+ * Consome um stream de texto plano (não SSE).
+ * Cada chunk de texto é passado ao handler.
+ */
+async function consumeTextStreamBody(
   body: ReadableStream<Uint8Array>,
-  handlers: StreamHandlers
+  handlers: StreamHandlers,
 ): Promise<void> {
   const reader = body.getReader();
   const decoder = new TextDecoder();
-  let carry = "";
-  let finished = false;
-
-  const safeDone = () => {
-    if (finished) return;
-    finished = true;
-    handlers.onDone();
-  };
 
   try {
+    console.log("[consumeTextStreamBody] Iniciando leitura do stream...");
+
     while (true) {
       const { done, value } = await reader.read();
-      if (done) break;
-      carry += decoder.decode(value, { stream: true });
 
-      let sep: number;
-      while ((sep = carry.indexOf("\n\n")) !== -1) {
-        const raw = carry.slice(0, sep);
-        carry = carry.slice(sep + 2);
-        if (dispatchSseEvent(raw, handlers)) {
-          finished = true;
-          return;
-        }
+      if (done) {
+        console.log("[consumeTextStreamBody] Stream finalizado (done=true)");
+        handlers.onDone();
+        break;
+      }
+
+      if (value) {
+        const text = decoder.decode(value, { stream: true });
+        console.log(
+          "[consumeTextStreamBody] Chunk recebido:",
+          text.length,
+          "caracteres",
+        );
+        handlers.onTextChunk(text);
       }
     }
-    if (carry.trim()) {
-      if (dispatchSseEvent(carry, handlers)) {
-        return;
-      }
-    }
-    safeDone();
+  } catch (err) {
+    const errorMsg = err instanceof Error ? err.message : String(err);
+    console.error(
+      "[consumeTextStreamBody] Erro durante leitura do stream:",
+      errorMsg,
+      err,
+    );
+    handlers.onError(`Erro ao ler stream: ${errorMsg}`);
   } finally {
-    reader.releaseLock();
-  }
-}
-
-/** @returns true se o stream deve encerrar (done ou error). */
-function dispatchSseEvent(rawBlock: string, handlers: StreamHandlers): boolean {
-  let eventName = "";
-  let dataPayload = "";
-
-  for (const line of rawBlock.split("\n")) {
-    if (line.startsWith("event:")) {
-      eventName = line.slice(6).trim();
-    } else if (line.startsWith("data:")) {
-      dataPayload += line.slice(5).trimStart();
+    try {
+      reader.releaseLock();
+      console.log("[consumeTextStreamBody] Lock do reader liberado.");
+    } catch (unlockErr) {
+      console.warn("[consumeTextStreamBody] Erro ao liberar lock:", unlockErr);
     }
   }
-
-  if (!dataPayload) return false;
-
-  let data: Record<string, unknown>;
-  try {
-    data = JSON.parse(dataPayload) as Record<string, unknown>;
-  } catch {
-    return false;
-  }
-
-  if (eventName === "error" || typeof data.error === "string") {
-    handlers.onError(String(data.error ?? "Erro no stream"));
-    return true;
-  }
-
-  if (eventName === "done") {
-    handlers.onDone();
-    return true;
-  }
-
-  if (typeof data.text === "string" && data.text.length > 0) {
-    handlers.onTextChunk(data.text);
-  }
-
-  return false;
 }
