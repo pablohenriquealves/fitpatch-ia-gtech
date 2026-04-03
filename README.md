@@ -10,7 +10,12 @@
 
 ## ✨ Funcionalidades Atuais (Front-end Mocks)
 
-### 1. Tela de Autenticação
+### 1. Design e UX
+- Abordagem Mobile-First: Interface e interações desenhadas com prioridade para uso em smartphones.
+- Ergonomia de Treino: Elementos clicáveis grandes, CTAs (botões de ação) na parte inferior da tela para fácil alcance com o polegar e inputs otimizados.
+- Dark Mode Nativo: Reduz o cansaço visual e economiza bateria do dispositivo durante a sessão de exercícios.
+
+### 2. Tela de Autenticação
 
 - Fluxo integrado de **Login** e **Cadastro**
 - Alternância dinâmica entre as duas telas
@@ -18,9 +23,11 @@
 - Design Dark Mode com acentos em vermelho
 - Redirecionamento fictício para check-in após autenticação
 
-[Insira a imagem aqui]
+![login](https://github.com/user-attachments/assets/98596367-1c03-481c-a74f-d770f187f9e1)
+![cadastro](https://github.com/user-attachments/assets/397ccca4-b732-4b09-8030-fe584e3ae45d)
 
-### 2. Tela de Check-in
+
+### 3. Tela de Check-in
 
 - **Seleção de Ficha de Treino:** Dropdown com diferentes tipos de rotinas
 - **Ajuste de Tempo Disponível:** Slider para definir tempo em minutos (15-180 min)
@@ -28,9 +35,10 @@
 - Interface limpa com validação em tempo real
 - Mudança visual dinâmica dos valores selecionados
 
-[Insira a imagem aqui]
+![checkin](https://github.com/user-attachments/assets/51cb4c2f-9f3e-4300-b313-fe62ec96b22a)
 
-### 3. Tela de Treino Ativo (Streaming/Visualização)
+
+### 4. Tela de Treino Ativo (Streaming/Visualização)
 
 - **Foco do Dia:** Exibição dinâmica do objetivo principal do treino
 - **Carrossel de Exercícios:** Scroll horizontal para visualizar cada exercício
@@ -42,7 +50,7 @@
   - Animação de carregamento (skeleton) durante a geração
 - **Botão de Finalizar:** Retorna para nova geração de treino
 
-[Insira a imagem aqui]
+![resultado](https://github.com/user-attachments/assets/86748236-fb3b-4593-8694-abf21d62fdf8)
 
 ---
 
