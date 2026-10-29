@@ -1,0 +1,7 @@
+{
+  "name": "FitPatch IA",
+  "description": "Adaptação inteligente de treinos de musculação com IA",
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
