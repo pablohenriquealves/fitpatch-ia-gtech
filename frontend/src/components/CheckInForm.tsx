@@ -1,37 +1,65 @@
-import { Minus, Plus } from "lucide-react";
+import { Check, Minus, Plus, RotateCcw } from "lucide-react";
 import { useState, type FormEvent } from "react";
-import { DEFAULT_SHEET_KEY, WORKOUT_SHEETS } from "../data/workoutSheets.js";
+import {
+  DEFAULT_SELECTED_MUSCLES,
+  MUSCLE_GROUPS,
+  WORKOUT_PRESETS,
+  buildRoutineFromMuscles,
+} from "../data/workoutSheets.js";
 import type { WorkoutCheckInRequest } from "../types/workout.js";
 
 const MIN_MINUTES = 15;
 const MAX_MINUTES = 180;
 const STEP = 15;
-const DEFAULT_MINUTES = 90;
+const DEFAULT_MINUTES = 45;
 
 function energyToFatigueLevel(energy: number): number {
-  return 6 - energy;
+  return Math.min(5, Math.max(1, 6 - energy));
 }
 
 export interface CheckInFormProps {
   onSubmit: (payload: WorkoutCheckInRequest) => void;
-  loading?: boolean;
+  loading: boolean;
 }
 
 export function CheckInForm({ onSubmit, loading }: CheckInFormProps) {
-  const [sheetKey, setSheetKey] = useState<string>(DEFAULT_SHEET_KEY);
+  const [selectedMuscles, setSelectedMuscles] = useState<string[]>(
+    DEFAULT_SELECTED_MUSCLES,
+  );
   const [minutes, setMinutes] = useState(DEFAULT_MINUTES);
   const [energy, setEnergy] = useState(3);
 
-  const sheet = WORKOUT_SHEETS[sheetKey] ?? WORKOUT_SHEETS[DEFAULT_SHEET_KEY];
+  const toggleMuscle = (id: string) => {
+    setSelectedMuscles((prev) =>
+      prev.includes(id) ? prev.filter((m) => m !== id) : [...prev, id],
+    );
+  };
+
+  const applyPreset = (muscleIds: string[]) => {
+    setSelectedMuscles([...muscleIds]);
+  };
+
+  const clearAllMuscles = () => {
+    setSelectedMuscles([]);
+  };
 
   const adjustMinutes = (delta: number) => {
     setMinutes((m) => Math.min(MAX_MINUTES, Math.max(MIN_MINUTES, m + delta)));
   };
 
+  const isPresetActive = (muscleIds: string[]) => {
+    if (muscleIds.length !== selectedMuscles.length) return false;
+    return muscleIds.every((id) => selectedMuscles.includes(id));
+  };
+
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
+    if (selectedMuscles.length === 0) return;
+
+    const routineDescription = buildRoutineFromMuscles(selectedMuscles);
+
     const payload: WorkoutCheckInRequest = {
-      baseWorkoutRoutine: sheet.baseWorkoutRoutine,
+      baseWorkoutRoutine: routineDescription,
       availableTimeMinutes: minutes,
       fatigueLevel: energyToFatigueLevel(energy),
       historyNotes: "",
@@ -42,30 +70,98 @@ export function CheckInForm({ onSubmit, loading }: CheckInFormProps) {
   return (
     <form
       onSubmit={handleSubmit}
-      className="flex w-full max-w-md flex-col gap-6 rounded-xl border border-neutral-800 bg-neutral-900 p-5 shadow-lg"
+      className="flex w-full flex-col gap-6 rounded-xl border border-neutral-800 bg-neutral-900 p-5 shadow-lg"
     >
+      {/* Target Muscles Selection */}
       <div>
-        <label
-          htmlFor="sheet"
-          className="mb-2 block text-sm font-medium text-neutral-400"
-        >
-          Ficha de treino
-        </label>
-        <select
-          id="sheet"
-          value={sheetKey}
-          onChange={(e) => setSheetKey(e.target.value)}
-          disabled={loading}
-          className="w-full appearance-none rounded-lg border border-neutral-800 bg-neutral-950 px-3 py-2.5 text-white outline-none ring-red-500/30 transition focus:ring-2"
-        >
-          {Object.entries(WORKOUT_SHEETS).map(([key, { label }]) => (
-            <option key={key} value={key}>
-              {label}
-            </option>
-          ))}
-        </select>
+        <div className="mb-2.5 flex items-center justify-between">
+          <label className="text-sm font-medium text-neutral-400">
+            Músculos-alvo
+          </label>
+          <span className="text-xs text-neutral-400">
+            {selectedMuscles.length === 0 ? (
+              <span className="text-amber-400">Nenhum selecionado</span>
+            ) : (
+              <span className="text-red-400 font-medium">
+                {selectedMuscles.length}{" "}
+                {selectedMuscles.length === 1 ? "músculo" : "músculos"}
+              </span>
+            )}
+          </span>
+        </div>
+
+        {/* Compact Alphabetical Muscle Chips */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+          {MUSCLE_GROUPS.map((muscle) => {
+            const isSelected = selectedMuscles.includes(muscle.id);
+            return (
+              <button
+                key={muscle.id}
+                type="button"
+                onClick={() => toggleMuscle(muscle.id)}
+                disabled={loading}
+                aria-pressed={isSelected}
+                className={`flex h-11 items-center justify-between px-3 rounded-lg border text-sm transition select-none active:scale-[0.98] ${
+                  isSelected
+                    ? "border-red-500 bg-red-950/40 text-white font-medium ring-1 ring-red-500/30"
+                    : "border-neutral-800 bg-neutral-950 text-neutral-400 hover:border-neutral-700 hover:text-neutral-200"
+                } disabled:opacity-50`}
+              >
+                <span className="truncate">{muscle.label}</span>
+                <span
+                  className={`flex h-5 w-5 shrink-0 items-center justify-center rounded transition ${
+                    isSelected
+                      ? "bg-red-600 text-white"
+                      : "border border-neutral-800 bg-neutral-900 text-transparent"
+                  }`}
+                >
+                  <Check className="h-3.5 w-3.5" strokeWidth={3} />
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Presets Row */}
+        <div className="mt-3 flex flex-col gap-1.5">
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-neutral-400">Rotinas rápidas (Presets):</span>
+            {selectedMuscles.length > 0 && (
+              <button
+                type="button"
+                onClick={clearAllMuscles}
+                disabled={loading}
+                className="inline-flex items-center gap-1 text-xs text-neutral-400 hover:text-red-400 transition"
+              >
+                <RotateCcw className="h-3 w-3" />
+                Limpar
+              </button>
+            )}
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {WORKOUT_PRESETS.map((preset) => {
+              const active = isPresetActive(preset.muscleIds);
+              return (
+                <button
+                  key={preset.id}
+                  type="button"
+                  onClick={() => applyPreset(preset.muscleIds)}
+                  disabled={loading}
+                  className={`px-2.5 py-1.5 text-xs rounded-md border transition ${
+                    active
+                      ? "border-red-600 bg-red-950/60 text-white font-medium shadow-sm"
+                      : "border-neutral-800 bg-neutral-950 text-neutral-400 hover:border-neutral-700 hover:text-white"
+                  } disabled:opacity-50`}
+                >
+                  {preset.shortLabel}
+                </button>
+              );
+            })}
+          </div>
+        </div>
       </div>
 
+      {/* Available Time */}
       <div>
         <p className="mb-2 text-sm font-medium text-neutral-400">
           Tempo disponível (min)
@@ -80,22 +176,9 @@ export function CheckInForm({ onSubmit, loading }: CheckInFormProps) {
           >
             <Minus className="h-5 w-5 text-red-500" strokeWidth={2.5} />
           </button>
-          <input
-            type="number"
-            inputMode="numeric"
-            pattern="[0-9]*"
-            min={MIN_MINUTES}
-            max={MAX_MINUTES}
-            value={minutes}
-            onChange={(e) => {
-              const v = Number.parseInt(e.target.value, 10);
-              if (Number.isFinite(v)) {
-                setMinutes(Math.min(MAX_MINUTES, Math.max(MIN_MINUTES, v)));
-              }
-            }}
-            disabled={loading}
-            className="w-full max-w-[5.5rem] border-b border-neutral-700 bg-transparent text-center text-2xl font-semibold text-white outline-none"
-          />
+          <div className="min-w-[5.5rem] text-center text-3xl font-extrabold tracking-tight text-white">
+            {minutes}
+          </div>
           <button
             type="button"
             onClick={() => adjustMinutes(STEP)}
@@ -108,6 +191,7 @@ export function CheckInForm({ onSubmit, loading }: CheckInFormProps) {
         </div>
       </div>
 
+      {/* Energy Level */}
       <div>
         <div className="mb-2 flex items-center justify-between">
           <label htmlFor="energy" className="text-sm font-medium text-neutral-400">
@@ -132,12 +216,17 @@ export function CheckInForm({ onSubmit, loading }: CheckInFormProps) {
         </div>
       </div>
 
+      {/* Submit Button */}
       <button
         type="submit"
-        disabled={loading}
-        className="mt-2 w-full rounded-xl bg-red-600 py-3.5 text-base font-semibold text-white shadow-md transition hover:bg-red-500 disabled:opacity-60"
+        disabled={loading || selectedMuscles.length === 0}
+        className="mt-2 w-full rounded-xl bg-red-600 py-3.5 text-base font-semibold text-white shadow-md transition hover:bg-red-500 disabled:opacity-50 disabled:cursor-not-allowed"
       >
-        {loading ? "Gerando…" : "Gerar treino"}
+        {loading
+          ? "Gerando…"
+          : selectedMuscles.length === 0
+            ? "Selecione ao menos um músculo"
+            : "Gerar treino"}
       </button>
     </form>
   );

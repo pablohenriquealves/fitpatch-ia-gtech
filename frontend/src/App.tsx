@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from "react";
-import { ArrowLeft, Dumbbell } from "lucide-react";
+import { ArrowLeft, Dumbbell, User } from "lucide-react";
 import { AuthForm } from "./components/AuthForm.js";
 import { CheckInForm } from "./components/CheckInForm.js";
 import { ExerciseCard } from "./components/ExerciseCard.js";
@@ -76,15 +76,27 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-neutral-950 text-white">
-      <header className="border-b border-neutral-800 bg-neutral-950/90 px-4 py-4 backdrop-blur">
-        <div className="mx-auto flex max-w-lg items-center gap-2">
-          <Dumbbell className="h-8 w-8 text-red-500" strokeWidth={2} />
-          <div>
-            <h1 className="text-lg font-bold tracking-tight">FitPatch IA</h1>
-            <p className="text-xs text-neutral-400">
-              Treino adaptado ao seu dia
-            </p>
+      <header className="border-b border-neutral-800 bg-neutral-950/90 py-4 backdrop-blur">
+        <div className="mx-auto flex max-w-lg items-center justify-between px-4">
+          <div className="flex items-center gap-2">
+            <Dumbbell className="h-8 w-8 text-red-500" strokeWidth={2} />
+            <div>
+              <h1 className="text-lg font-bold tracking-tight">FitPatch IA</h1>
+              <p className="text-xs text-neutral-400">
+                Treino adaptado ao seu dia
+              </p>
+            </div>
           </div>
+
+          <button
+            type="button"
+            onClick={() => setScreen((prev) => (prev === "auth" ? "form" : "auth"))}
+            className="flex h-10 w-10 items-center justify-center rounded-full border border-neutral-800 bg-neutral-900 text-neutral-300 transition hover:border-red-500/50 hover:text-white"
+            aria-label="Perfil do usuário"
+            title="Perfil do usuário"
+          >
+            <User className="h-5 w-5" />
+          </button>
         </div>
       </header>
 

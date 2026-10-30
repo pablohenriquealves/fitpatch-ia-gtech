@@ -12,13 +12,17 @@ function getModelId(): string {
 }
 
 function getApiKey(): string {
-  const key = process.env.GEMINI_API_KEY;
-  if (!key?.trim()) {
+  const key =
+    process.env.GEMINI_API_KEY?.trim() ||
+    process.env.VITE_GEMINI_API_KEY?.trim() ||
+    process.env.API_KEY?.trim();
+
+  if (!key) {
     throw new Error(
-      "GEMINI_API_KEY não configurada. Defina a variável de ambiente antes de chamar o serviço.",
+      "Chave de API do Gemini não configurada. Defina GEMINI_API_KEY ou VITE_GEMINI_API_KEY no arquivo .env.",
     );
   }
-  return key.trim();
+  return key;
 }
 
 /**
