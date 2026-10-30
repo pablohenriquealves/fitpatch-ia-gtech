@@ -49,7 +49,7 @@ export function AuthForm({ onAuthSuccess }: AuthFormProps) {
   };
 
   return (
-    <div className="w-full max-w-md rounded-xl border border-neutral-800 bg-neutral-900 p-5 shadow-lg">
+    <div className="w-full rounded-xl border border-neutral-800 bg-neutral-900 p-5 shadow-lg">
       {/* Header */}
       <div className="text-center mb-8">
         <h1 className="text-3xl font-bold text-white mb-2">FitPatch</h1>
@@ -118,6 +118,30 @@ export function AuthForm({ onAuthSuccess }: AuthFormProps) {
             className="w-full bg-[#2a2a2a] text-white border border-gray-600 rounded px-4 py-2 placeholder-gray-500 focus:border-red-600 focus:outline-none transition-colors"
           />
         </div>
+
+        {/* Dica de Conta Demo */}
+        {isLogin && (
+          <div className="flex items-center justify-between rounded-lg border border-neutral-800 bg-neutral-950/60 px-3 py-2 text-xs text-neutral-400 mt-4">
+            <p className="leading-relaxed">
+              <span className="font-semibold text-neutral-300">Demo:</span> e-mail{" "}
+              <span className="font-mono text-red-400">fitpatch@email.com</span> • senha{" "}
+              <span className="font-mono text-red-400">fitpatch123</span>
+            </p>
+            <button
+              type="button"
+              onClick={() =>
+                setFormData({
+                  name: "",
+                  email: "fitpatch@email.com",
+                  password: "fitpatch123",
+                })
+              }
+              className="ml-2 shrink-0 font-medium text-red-500 transition hover:text-red-400 underline"
+            >
+              Preencher
+            </button>
+          </div>
+        )}
 
         {/* Botão Principal */}
         <button
